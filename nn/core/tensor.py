@@ -10,7 +10,7 @@ class Tensor:
 
     _RequiresGrad: bool = False
 
-    def __init__(self, data: np.ndarray, requiresGrad: bool = False):
+    def __init__(self, data: np.ndarray | list[list[float]], requiresGrad: bool = False):
         self._Data = np.array(data, dtype=np.float64, copy=True)
         self._RequiresGrad = requiresGrad
     
