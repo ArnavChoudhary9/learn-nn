@@ -1,0 +1,1 @@
+"""MNIST-small training example."""

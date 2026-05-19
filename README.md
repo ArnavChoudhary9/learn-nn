@@ -1,2 +1,3 @@
-# learn-nn
-This repo tracks my progress in learning Neural Networks from Perceptron to Transformers
+# neural_net
+
+A from-scratch neural network library.

@@ -1,0 +1,1 @@
+"""Linear (fully-connected) layer."""
