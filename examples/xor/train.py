@@ -30,7 +30,7 @@ criterion = MSELoss()
 optimizer = SGD(model.Parameters, lr=0.1)
 
 # Training loop
-for epoch in range(30000):
+for epoch in range(100_000):
     # Forward pass
     outputs = model.Forward(X)
     loss = criterion(outputs, y)
@@ -41,8 +41,8 @@ for epoch in range(30000):
     model.Backward(dY)
     optimizer.Step()
 
-    if (epoch + 1) % 1000 == 0:
-        print(f'Epoch [{epoch + 1}/30000], Loss: {loss.Data:.4f}')
+    if (epoch + 1) % 5000 == 0:
+        print(f'Epoch [{epoch + 1}/100000], Loss: {loss.Data:.4f}')
 
 # Test the trained model
 with np.printoptions(precision=4, suppress=True):

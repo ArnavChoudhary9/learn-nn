@@ -11,11 +11,11 @@ class Tensor:
     _RequiresGrad: bool = False
 
     def __init__(self, data: np.ndarray | list[list[float]], requiresGrad: bool = False):
-        self._Data = np.array(data, dtype=np.float64, copy=True)
+        self._Data = np.asarray(data, dtype=np.float32)
         self._RequiresGrad = requiresGrad
-    
+
         self._Grad = (
-            np.zeros_like(data, dtype=np.float64)
+            np.zeros(self._Data.shape, dtype=np.float32)
             if requiresGrad
             else None
         )

@@ -25,4 +25,7 @@ class SGD:
     def ZeroGrad(self):
         """Reset gradients of all parameters to zero."""
         for parameter in self._Parameters:
-            parameter.Grad = np.zeros_like(parameter.Data)
+            if parameter.Grad is not None:
+                parameter.Grad.fill(0.0)
+            else:
+                parameter.Grad = np.zeros(parameter.Data.shape, dtype=np.float32)

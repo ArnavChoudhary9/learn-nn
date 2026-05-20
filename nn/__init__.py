@@ -5,3 +5,4 @@ from .layers import *
 from .losses import *
 from .optim import *
 from .activations import *
+from .data import *

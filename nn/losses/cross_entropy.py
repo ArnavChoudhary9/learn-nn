@@ -36,8 +36,8 @@ class CELoss:
         self._Prediction = y_pred
         self._Target     = y_true
 
-        # Calculate cross-entropy loss
-        loss = - np.sum(y * np.log(y1), axis=1).mean()
+        # Sum over class axis (0), average over batch axis (1)
+        loss = - np.sum(y * np.log(y1), axis=0).mean()
         return Tensor(loss)
     
     def Backward(self) -> Tensor:
@@ -58,4 +58,4 @@ class CELoss:
         epsilon = 1e-15
         y1 = np.clip(y1, epsilon, 1 - epsilon)
 
-        return Tensor(- (y / y1) / y.shape[0])
+        return Tensor(- (y / y1) / y.shape[-1])

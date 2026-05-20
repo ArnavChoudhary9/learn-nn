@@ -1,0 +1,8 @@
+# MNIST raw binary data
+*.idx3-ubyte
+*.idx1-ubyte
+*-idx3-ubyte/
+*-idx1-ubyte/
+
+# Generated CSVs (large files)
+csv/

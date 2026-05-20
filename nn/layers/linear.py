@@ -4,6 +4,9 @@ from ..core.tensor import Tensor
 from ..core.parameter import Parameter
 from ..core.module import Module
 
+from ..init.xavier import XavierInitialization
+
+from typing import Callable
 import numpy as np
 
 class Linear(Module):
@@ -14,14 +17,18 @@ class Linear(Module):
 
     _TemporaryInput: Tensor | None
 
-    def __init__(self, inputDim: int, outputDim: int):
+    def __init__(self,
+            inputDim: int, outputDim: int,
+            initMethod: Callable[[tuple[int, ...]], np.ndarray] = XavierInitialization,
+            *initArgs, **initKwargs
+        ) -> None:
         super().__init__()
         self._InputDim = inputDim
         self._OutputDim = outputDim
         self._TemporaryInput = None
 
         # Initialize weights and biases
-        weightData = np.random.randn(outputDim, inputDim) * np.sqrt(2. / inputDim)
+        weightData = initMethod((outputDim, inputDim), *initArgs, **initKwargs)
         biasData = np.zeros((outputDim, 1))
 
         self.AddParameter('weight', Parameter(weightData))
@@ -61,8 +68,7 @@ class Linear(Module):
         # dB += np.sum(_dZ, axis=1, keepdims=True)
         # dX += W.T @ _dZ
 
-        # Clear temporary input
-        # self._TemporaryInput = None   # Uncomment if one backward per forward guaranteed
+        self._TemporaryInput = None
 
         # Update parameters
         self._Parameters['weight'].Grad = dW
