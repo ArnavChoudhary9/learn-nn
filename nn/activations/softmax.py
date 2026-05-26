@@ -16,3 +16,6 @@ class Softmax(Module):
 
     def Forward(self, x: Tensor) -> Tensor:
         return SoftmaxOp.apply(x, self._Axis)
+
+    def Config(self) -> dict:
+        return {"type": "Softmax", "args": {"axis": self._Axis}}

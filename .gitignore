@@ -219,3 +219,6 @@ __marimo__/
 
 # Virtual environment created by virtualenv
 .venv/
+
+# Trained Models
+*.npz

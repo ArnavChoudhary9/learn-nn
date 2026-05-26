@@ -39,3 +39,9 @@ class Linear(Module):
         weight = self._Parameters["weight"]
         bias = self._Parameters["bias"]
         return Add.apply(MatMul.apply(weight, x), bias)
+
+    def Config(self) -> dict:
+        return {
+            "type": "Linear",
+            "args": {"inputDim": self._InputDim, "outputDim": self._OutputDim},
+        }

@@ -2,6 +2,8 @@
 
 from abc import ABC, abstractmethod
 
+import numpy as np
+
 from .tensor import Tensor
 from .parameter import Parameter
 
@@ -23,7 +25,7 @@ class Module(ABC):
 
     @property
     def Parameters(self) -> list[Parameter]:
-        """Return a list of all parameters in this module and its submodules."""
+        """All parameters in this module and its submodules (flat list)."""
         params: list[Parameter] = []
         for param in self._Parameters.values():
             params.append(param)
@@ -42,5 +44,43 @@ class Module(ABC):
 
     @abstractmethod
     def Forward(self, x: Tensor) -> Tensor:
-        """Forward pass — must use Tensor ops so autograd can track gradients."""
         ...
+
+    # ------------------------------------------------------------------
+    # Serialization
+    # ------------------------------------------------------------------
+
+    def StateDict(self, prefix: str = "") -> dict[str, np.ndarray]:
+        """Collect parameters into a flat dict keyed by hierarchical name."""
+        sd: dict[str, np.ndarray] = {}
+        for name, p in self._Parameters.items():
+            sd[f"{prefix}{name}"] = p.Data
+        for name, m in self._Modules.items():
+            sd.update(m.StateDict(prefix=f"{prefix}{name}."))
+        return sd
+
+    def LoadStateDict(self, sd: dict[str, np.ndarray], prefix: str = "", strict: bool = True) -> None:
+        """Load parameters from a flat dict."""
+        for name, p in self._Parameters.items():
+            key = f"{prefix}{name}"
+            if key not in sd:
+                if strict:
+                    raise KeyError(f"Missing parameter in state dict: {key}")
+                continue
+            arr = np.asarray(sd[key], dtype=np.float32)
+            if arr.shape != p.Data.shape:
+                raise ValueError(
+                    f"Shape mismatch for {key}: expected {p.Data.shape}, got {arr.shape}"
+                )
+            p.Data = arr
+        for name, m in self._Modules.items():
+            m.LoadStateDict(sd, prefix=f"{prefix}{name}.", strict=strict)
+
+    def Config(self) -> dict:
+        """Return a dict describing how to reconstruct this module.
+
+        Default: just the class name (works for modules with no init args
+        like ReLU, Sigmoid, Tanh). Subclasses with constructor args must
+        override and include them under `"args"`.
+        """
+        return {"type": type(self).__name__}

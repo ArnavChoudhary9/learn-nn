@@ -16,3 +16,9 @@ class Sequential(Module):
         for module in self._Modules.values():
             x = module(x)
         return x
+
+    def Config(self) -> dict:
+        return {
+            "type": "Sequential",
+            "modules": [m.Config() for m in self._Modules.values()],
+        }
