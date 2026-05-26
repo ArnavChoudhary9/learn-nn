@@ -1,24 +1,49 @@
 """Adam optimizer."""
 
-from .sgd import SGD
+import numpy as np
 
-class Adam(SGD):
-    """Adam optimizer."""
-    def __init__(self, parameters, lr=0.001, beta1=0.9, beta2=0.999, eps=1e-8):
+from ..core.parameter import Parameter
+from .base import Optimizer
+
+
+class Adam(Optimizer):
+    """Adam: adaptive moments with bias-corrected first and second moments."""
+
+    _Beta1: float
+    _Beta2: float
+    _Eps: float
+    _Step: int
+    _M: list[np.ndarray]
+    _V: list[np.ndarray]
+
+    def __init__(
+        self,
+        parameters: list[Parameter],
+        lr: float = 1e-3,
+        beta1: float = 0.9,
+        beta2: float = 0.999,
+        eps: float = 1e-8,
+    ):
         super().__init__(parameters, lr)
-        self.beta1 = beta1
-        self.beta2 = beta2
-        self.eps = eps
-        self.m = [0.0] * len(parameters)
-        self.v = [0.0] * len(parameters)
-        self.t = 0
-    
-    def Step(self):
-        self.t += 1
-        for i, param in enumerate(self._Parameters):
-            g = param.Grad
-            self.m[i] = self.beta1 * self.m[i] + (1 - self.beta1) * g
-            self.v[i] = self.beta2 * self.v[i] + (1 - self.beta2) * (g * g)
-            m_hat = self.m[i] / (1 - self.beta1 ** self.t)
-            v_hat = self.v[i] / (1 - self.beta2 ** self.t)
-            param.Data -= self.lr * m_hat / (v_hat ** 0.5 + self.eps)
+        self._Beta1 = beta1
+        self._Beta2 = beta2
+        self._Eps = eps
+        self._Step = 0
+        self._M = [np.zeros_like(p.Data, dtype=np.float32) for p in parameters]
+        self._V = [np.zeros_like(p.Data, dtype=np.float32) for p in parameters]
+
+    def Step(self) -> None:
+        self._Step += 1
+        b1, b2 = self._Beta1, self._Beta2
+        bc1 = 1.0 - b1 ** self._Step
+        bc2 = 1.0 - b2 ** self._Step
+
+        for i, p in enumerate(self._Parameters):
+            if p.Grad is None:
+                continue
+            g = p.Grad
+            self._M[i] = b1 * self._M[i] + (1.0 - b1) * g
+            self._V[i] = b2 * self._V[i] + (1.0 - b2) * g * g
+            m_hat = self._M[i] / bc1
+            v_hat = self._V[i] / bc2
+            p.Data = p.Data - self._LearningRate * m_hat / (np.sqrt(v_hat) + self._Eps)

@@ -1,12 +1,16 @@
-"""MNIST digit classification."""
+"""MNIST digit classification — fully autograd-driven."""
 
-import numpy as np
 import os
 import sys
+import numpy as np
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", ".."))
 
-from nn import Sequential, Linear, ReLU, Softmax, CELoss, SGD, Tensor, TensorDataset, DataLoader
+from nn import (
+    Sequential, Linear, ReLU, Softmax, CELoss, Tensor,
+    TensorDataset, DataLoader,
+)
+from nn.optim import Adam
 from nn.init import HeInitialization
 
 
@@ -25,7 +29,7 @@ def one_hot(labels, num_classes=10):
 
 
 def accuracy(model, X, labels):
-    preds = np.argmax(model.Forward(X).Data, axis=0)
+    preds = np.argmax(model(X).Data, axis=0)
     return (preds == labels).mean() * 100.0
 
 
@@ -33,9 +37,9 @@ base = os.path.dirname(__file__)
 train_pixels, train_labels = load_csv(os.path.join(base, "csv", "train.csv"))
 test_pixels,  test_labels  = load_csv(os.path.join(base, "csv", "test.csv"))
 
-X_train = Tensor(train_pixels.T)         # (784, 60000)
-y_train = Tensor(one_hot(train_labels))  # (10,  60000)
-X_test  = Tensor(test_pixels.T)          # (784, 10000)
+X_train = Tensor(train_pixels.T)
+y_train = Tensor(one_hot(train_labels))
+X_test  = Tensor(test_pixels.T)
 
 loader = DataLoader(TensorDataset(X_train, y_train), batchSize=128, shuffle=True)
 
@@ -49,22 +53,22 @@ model = Sequential(
 )
 
 criterion = CELoss()
-optimizer = SGD(model.Parameters, lr=0.1)
+optimizer = Adam(model.Parameters, lr=1e-3)
 
-epochs = 50
-for epoch in range(1, epochs + 1):
+EPOCHS = 10
+for epoch in range(1, EPOCHS + 1):
     total_loss = 0.0
     for X_batch, y_batch in loader:
-        outputs = model.Forward(X_batch)
-        loss = criterion(outputs, y_batch)
+        out = model(X_batch)
+        loss = criterion(out, y_batch)
         total_loss += float(loss.Data)
 
         optimizer.ZeroGrad()
-        model.Backward(criterion.Backward())
+        loss.backward()
         optimizer.Step()
 
     train_acc = accuracy(model, X_train, train_labels)
-    print(f"Epoch [{epoch:2d}/{epochs}]  loss: {total_loss / len(loader):.4f}  train_acc: {train_acc:.1f}%")
+    print(f"epoch [{epoch:2d}/{EPOCHS}]  loss: {total_loss / len(loader):.4f}  train_acc: {train_acc:.1f}%")
 
 test_acc = accuracy(model, X_test, test_labels)
 print(f"\nTest accuracy: {test_acc:.1f}%")

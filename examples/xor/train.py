@@ -1,50 +1,39 @@
-"""XOR training example."""
-
-from nn import *
+"""XOR training — fully autograd-driven."""
 
 import numpy as np
 
-# Define the XOR dataset
-X = Tensor(
-    np.array([
-        [0, 0, 1, 1],
-        [0, 1, 0, 1],
-    ])
-)
-y = Tensor(
-    np.array([
-        [0, 1, 1, 0],
-    ])
-)
+from nn import Tensor, Sequential, Linear, Sigmoid, MSELoss
+from nn.optim import Adam
 
-# Define a simple feedforward neural network
+
+X = Tensor(np.array([[0, 0, 1, 1],
+                     [0, 1, 0, 1]], dtype=np.float32))
+y = Tensor(np.array([[0, 1, 1, 0]], dtype=np.float32))
+
 model = Sequential(
     Linear(2, 4),
     Sigmoid(),
     Linear(4, 1),
-    Sigmoid()
+    Sigmoid(),
 )
 
-# Define the loss function and optimizer
 criterion = MSELoss()
-optimizer = SGD(model.Parameters, lr=0.1)
+optimizer = Adam(model.Parameters, lr=0.05)
 
-# Training loop
-for epoch in range(100_000):
-    # Forward pass
-    outputs = model.Forward(X)
-    loss = criterion(outputs, y)
+EPOCHS = 5_000
+for epoch in range(1, EPOCHS + 1):
+    out = model(X)
+    loss = criterion(out, y)
 
-    # Backward pass and optimization
     optimizer.ZeroGrad()
-    dY = criterion.Backward()
-    model.Backward(dY)
+    loss.backward()
     optimizer.Step()
 
-    if (epoch + 1) % 5000 == 0:
-        print(f'Epoch [{epoch + 1}/100000], Loss: {loss.Data:.4f}')
+    if epoch % 500 == 0:
+        print(f"epoch [{epoch:5d}/{EPOCHS}]  loss: {float(loss.Data):.6f}")
 
-# Test the trained model
 with np.printoptions(precision=4, suppress=True):
-    print("Predicted outputs:")
-    print(model.Forward(X).Data)
+    print("\nPredictions:")
+    print(model(X).Data)
+    print("Expected:")
+    print(y.Data)

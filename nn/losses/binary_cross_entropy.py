@@ -1,64 +1,35 @@
 """Binary cross-entropy loss."""
 
-from ..core.tensor import Tensor
-
 import numpy as np
 
+from ..core.tensor import Tensor
+from ..autograd.ops.add import Add
+from ..autograd.ops.sub import Sub
+from ..autograd.ops.mul import Mul
+from ..autograd.ops.neg import Neg
+from ..autograd.ops.log import Log
+from ..autograd.ops.mean import Mean
+
+
+_EPS = 1e-7
+
+
 class BCELoss:
-    """Binary cross-entropy loss."""
-
-    _Prediction : Tensor | None
-    _Target     : Tensor | None
-
-    def __init__(self):
-        """Initialize the mean squared error loss."""
-        self._Prediction = None
-        self._Target     = None
+    """L = -mean( y*log(p) + (1-y)*log(1-p) )"""
 
     def __call__(self, y_pred: Tensor, y_true: Tensor) -> Tensor:
-        """Calculate the binary cross-entropy loss."""
         return self.Forward(y_pred, y_true)
 
     def Forward(self, y_pred: Tensor, y_true: Tensor) -> Tensor:
-        """Calculate the binary cross-entropy loss.
+        eps_t = Tensor(np.full(y_pred.Shape, _EPS, dtype=np.float32))
+        ones = Tensor(np.ones(y_pred.Shape, dtype=np.float32))
+        ones_y = Tensor(np.ones(y_true.Shape, dtype=np.float32))
 
-        Args:
-            y_pred: Predicted probabilities (values between 0 and 1).
-            y_true: True labels (0 or 1).
+        p_safe = Add.apply(y_pred, eps_t)
+        one_minus_p = Add.apply(Sub.apply(ones, y_pred), eps_t)
+        one_minus_y = Sub.apply(ones_y, y_true)
 
-        Returns:
-            The binary cross-entropy loss.
-        """
-        # Avoid division by zero and log of zero
-        epsilon = 1e-15
-        y1 = np.clip(y_pred.Data, epsilon, 1 - epsilon)
-        y = y_true.Data
+        term1 = Mul.apply(y_true, Log.apply(p_safe))
+        term2 = Mul.apply(one_minus_y, Log.apply(one_minus_p))
 
-        self._Prediction = y_pred
-        self._Target     = y_true
-
-        # Calculate binary cross-entropy loss
-        loss = - (y * np.log(y1) + (1 - y) * np.log(1 - y1))
-        return Tensor(loss)
-    
-    def Backward(self) -> Tensor:
-        """Calculate the gradient of the binary cross-entropy loss."""
-        if (
-            self._Prediction is None
-            or
-            self._Target is None
-        ):
-            raise ValueError(
-                "No forward pass before backward."
-            )
-
-        y = self._Target.Data
-        y1 = self._Prediction.Data
-
-        # Avoid division by zero
-        epsilon = 1e-15
-        y1 = np.clip(y1, epsilon, 1 - epsilon)
-
-        # Calculate the gradient of the binary cross-entropy loss
-        grad = (y1 - y) / (y1 * (1 - y1))
-        return Tensor(grad)
+        return Neg.apply(Mean.apply(Add.apply(term1, term2)))

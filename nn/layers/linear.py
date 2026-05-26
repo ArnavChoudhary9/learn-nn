@@ -1,77 +1,41 @@
 """Linear (fully-connected) layer."""
 
-from ..core.tensor import Tensor
-from ..core.parameter import Parameter
-from ..core.module import Module
-
-from ..init.xavier import XavierInitialization
-
 from typing import Callable
 import numpy as np
 
+from ..core.tensor import Tensor
+from ..core.parameter import Parameter
+from ..core.module import Module
+from ..init.xavier import XavierInitialization
+from ..autograd.ops.matmul import MatMul
+from ..autograd.ops.add import Add
+
+
 class Linear(Module):
-    """Linear (fully-connected) layer."""
+    """Linear (fully-connected) layer: y = W @ x + b."""
 
     _InputDim: int
     _OutputDim: int
 
-    _TemporaryInput: Tensor | None
-
-    def __init__(self,
-            inputDim: int, outputDim: int,
-            initMethod: Callable[[tuple[int, ...]], np.ndarray] = XavierInitialization,
-            *initArgs, **initKwargs
-        ) -> None:
+    def __init__(
+        self,
+        inputDim: int,
+        outputDim: int,
+        initMethod: Callable[..., np.ndarray] = XavierInitialization,
+        *initArgs,
+        **initKwargs,
+    ) -> None:
         super().__init__()
         self._InputDim = inputDim
         self._OutputDim = outputDim
-        self._TemporaryInput = None
 
-        # Initialize weights and biases
         weightData = initMethod((outputDim, inputDim), *initArgs, **initKwargs)
-        biasData = np.zeros((outputDim, 1))
+        biasData = np.zeros((outputDim, 1), dtype=np.float32)
 
-        self.AddParameter('weight', Parameter(weightData))
-        self.AddParameter('bias', Parameter(biasData))
+        self.AddParameter("weight", Parameter(weightData))
+        self.AddParameter("bias", Parameter(biasData))
 
     def Forward(self, x: Tensor) -> Tensor:
-        """Forward pass."""
-        weight = self._Parameters['weight'].Data
-        bias = self._Parameters['bias'].Data
-
-        assert x.Data.shape[0] == weight.shape[1], (
-            f"Expected input features "
-            f"{weight.shape[1]}, "
-            f"got {x.Data.shape[0]}"
-        )
-        
-        self._TemporaryInput = x
-        return Tensor(weight @ x.Data + bias)
-    
-    def Backward(self, dZ: Tensor) -> Tensor:
-        """Backward pass."""
-        if self._TemporaryInput is None:
-            raise ValueError("No input to backward pass.")
-        
-        _dZ = dZ.Data
-        W = self._Parameters['weight'].Data
-        # B = self._Parameters['bias'].Data
-        X = self._TemporaryInput.Data
-
-        # Compute gradients
-        dW = _dZ @ X.T
-        dB = np.sum(_dZ, axis=1, keepdims=True)
-        dX = W.T @ _dZ
-
-        # Grad accumulation (if needed)
-        # dW += _dZ @ X.T
-        # dB += np.sum(_dZ, axis=1, keepdims=True)
-        # dX += W.T @ _dZ
-
-        self._TemporaryInput = None
-
-        # Update parameters
-        self._Parameters['weight'].Grad = dW
-        self._Parameters['bias'].Grad = dB
-
-        return Tensor(dX)
+        weight = self._Parameters["weight"]
+        bias = self._Parameters["bias"]
+        return Add.apply(MatMul.apply(weight, x), bias)
