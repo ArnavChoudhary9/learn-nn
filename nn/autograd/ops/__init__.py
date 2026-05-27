@@ -13,9 +13,13 @@ from .tanh import Tanh
 from .softmax import Softmax
 from .exp import Exp
 from .log import Log
+from .conv2d import Conv2D
+from .flatten import Flatten
+from .maxpool2d import MaxPool2D
 
 __all__ = [
     "Add", "Sub", "Neg", "Mul", "Div", "MatMul",
     "Pow", "Sum", "Mean",
     "ReLU", "Sigmoid", "Tanh", "Softmax", "Exp", "Log",
+    "Conv2D", "Flatten", "MaxPool2D",
 ]

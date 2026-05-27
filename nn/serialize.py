@@ -29,9 +29,9 @@ def Register(cls: type[Module]) -> type[Module]:
 
 def _BuiltinRegistry() -> None:
     """Populate the registry with the built-in modules. Idempotent."""
-    from .layers import Linear, Sequential
+    from .layers import Linear, Sequential, Conv2D, Flatten, MaxPool2D
     from .activations import ReLU, Sigmoid, Tanh, Softmax
-    for cls in (Linear, Sequential, ReLU, Sigmoid, Tanh, Softmax):
+    for cls in (Linear, Sequential, Conv2D, Flatten, MaxPool2D, ReLU, Sigmoid, Tanh, Softmax):
         _REGISTRY.setdefault(cls.__name__, cls)
 
 
@@ -51,8 +51,11 @@ def BuildFromConfig(config: dict) -> Module:
     cls = _REGISTRY[type_name]
 
     if type_name == "Sequential":
+        from .layers import Sequential  # local import — concrete type for the kwarg
         children = [BuildFromConfig(c) for c in config["modules"]]
-        return cls(*children)
+        raw_shape = config.get("inputShape")
+        inputShape = tuple(raw_shape) if raw_shape is not None else None
+        return Sequential(*children, inputShape=inputShape)
 
     return cls(**config.get("args", {}))
 

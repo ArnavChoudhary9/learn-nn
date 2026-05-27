@@ -84,3 +84,12 @@ class Module(ABC):
         override and include them under `"args"`.
         """
         return {"type": type(self).__name__}
+
+    @property
+    def InputShape(self) -> tuple | None:
+        """Per-sample input shape, with `None` marking the batch axis.
+
+        Overridden by containers that record the model's external contract
+        (e.g. Sequential's `inputShape=` kwarg). Returns None when unknown.
+        """
+        return None

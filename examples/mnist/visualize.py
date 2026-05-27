@@ -3,13 +3,20 @@
 Draw a digit with the mouse on the left canvas; the trained network predicts
 it in real time and displays the per-class probabilities as bars on the right.
 
+Works with any saved MNIST model (MLP or CNN) — the model's `InputShape`
+is read at load time to figure out how to feed the drawing.
+
 Run:
-    python examples/mnist/train.py          # train + save mnist_model.npz
-    python examples/mnist/visualize.py      # launch the GUI
+    python examples/mnist/train.py                       # train + save MLP
+    python examples/mnist/train.py --cnn                 # train + save CNN
+    python examples/mnist/visualize.py                   # default: MLP
+    python examples/mnist/visualize.py --cnn             # use CNN
+    python examples/mnist/visualize.py --model some.npz  # arbitrary file
 
 Requires only the standard library + numpy (Tkinter ships with Python).
 """
 
+import argparse
 import os
 import sys
 import tkinter as tk
@@ -34,11 +41,20 @@ BRUSH_R = 34                     # painting radius for the Gaussian (buffer)
 BRUSH_SIGMA = BRUSH_R * 0.45     # std-dev; smaller = tighter core, larger = softer
 BRUSH_CORE_R = 17                # visible solid-white stroke half-width on canvas
 
-# Training subtracted the dataset mean from every input — we must too.
-MNIST_MEAN = 0.1307
-
 HERE = os.path.dirname(__file__)
-MODEL_PATH = os.path.join(HERE, "mnist_model.npz")
+MLP_MODEL_PATH = os.path.join(HERE, "mnist_model.npz")
+CNN_MODEL_PATH = os.path.join(HERE, "mnist_cnn_model.npz")
+
+
+def _ToModelInput(images_nchw: np.ndarray, input_shape: tuple) -> np.ndarray:
+    """Project an (N, 1, 28, 28) batch onto the model's declared input shape.
+
+    Batch axis in `input_shape` is marked with None.
+    """
+    batch_axis = input_shape.index(None)
+    per_sample = tuple(s for s in input_shape if s is not None)
+    N = images_nchw.shape[0]
+    return np.moveaxis(images_nchw.reshape((N,) + per_sample), 0, batch_axis).astype(np.float32)
 
 
 # ---------------------------------------------------------------------------
@@ -49,6 +65,14 @@ class DigitRecognizerApp:
     def __init__(self, root: tk.Tk, model) -> None:
         self.root = root
         self.model = model
+
+        shape = model.InputShape
+        if shape is None or None not in shape:
+            raise ValueError(
+                "Model has no usable InputShape — retrain with an updated "
+                "build_*() that passes inputShape=... to Sequential."
+            )
+        self.input_shape: tuple = shape
 
         # Backing buffer at canvas resolution — 1.0 = ink, 0.0 = blank.
         self.buffer = np.zeros((CANVAS, CANVAS), dtype=np.float32)
@@ -213,9 +237,10 @@ class DigitRecognizerApp:
             self.conf_label.config(text="confidence: 0.0%")
             return
 
-        # Mean-center to match training preprocessing.
-        centered = (small - MNIST_MEAN).astype(np.float32)
-        x = Tensor(centered.reshape(784, 1))
+        # Raw [0,1] pixels — training feeds the model without preprocessing.
+        # Reshape to whatever the loaded model says it wants.
+        raw = small.astype(np.float32).reshape(1, 1, GRID, GRID)
+        x = Tensor(_ToModelInput(raw, self.input_shape))
         probs = self.model(x).Data.flatten()
 
         best = int(np.argmax(probs))
@@ -242,15 +267,25 @@ class DigitRecognizerApp:
 # ---------------------------------------------------------------------------
 
 def main() -> None:
-    if not os.path.exists(MODEL_PATH):
-        sys.exit(
-            f"No saved model at {MODEL_PATH}.\n"
-            f"Train one first:  python {os.path.relpath(os.path.join(HERE, 'train.py'))}"
-        )
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--cnn", action="store_true",
+                        help=f"Use the CNN model ({os.path.basename(CNN_MODEL_PATH)}). "
+                             f"Default is the MLP ({os.path.basename(MLP_MODEL_PATH)}).")
+    parser.add_argument("--model", default=None,
+                        help="Path to a saved .npz model. Overrides --cnn.")
+    args = parser.parse_args()
 
-    print(f"Loading model from {os.path.basename(MODEL_PATH)}...")
-    model = Load(MODEL_PATH)
-    print("Model loaded. Opening window — draw a digit with the mouse.")
+    model_path = args.model if args.model else (CNN_MODEL_PATH if args.cnn else MLP_MODEL_PATH)
+
+    if not os.path.exists(model_path):
+        train_cmd = "python " + os.path.relpath(os.path.join(HERE, "train.py"))
+        if args.cnn:
+            train_cmd += " --cnn"
+        sys.exit(f"No saved model at {model_path}.\nTrain one first:  {train_cmd}")
+
+    print(f"Loading model from {os.path.basename(model_path)}...")
+    model = Load(model_path)
+    print(f"InputShape: {model.InputShape}. Opening window — draw a digit with the mouse.")
 
     root = tk.Tk()
     DigitRecognizerApp(root, model)
